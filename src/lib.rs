@@ -1,42 +1,60 @@
-#[cxx::bridge]
-pub mod ffi {
+// pub mod spout_dx_adapter;
+// pub mod spout;
 
-    unsafe extern "C++" {
-        include!("spout_rust/SpoutGL/SpoutDXAdapter.h");
+// use 
 
-        pub type SpoutDXAdapter;
+use std::{pin::Pin, os::raw::c_char, ffi::{CString, CStr}};
 
-        pub fn new_spout_adapter() -> UniquePtr<SpoutDXAdapter>;
+use autocxx::prelude::*;
 
-        pub fn AdapterSetReceiverName(
-            self: Pin<&mut SpoutDXAdapter>,
-            sendername: Pin<&mut CxxString>,
-        );
+include_cpp! {
+    #include "Spout.h"
+    safety!(unsafe_ffi)
+    generate!("Spout")
+}
 
-        pub fn AdapterReceiveImage(
-            self: Pin<&mut SpoutDXAdapter>,
-            pixels: &mut [u8],
-            width: u32,
-            height: u32,
-            bRGB: bool,
-            bInverted: bool,
-        ) -> bool;
+pub struct SpoutSender{
+    spout: Pin<Box<ffi::Spout>>
+}
 
-        pub fn AdapterIsUpdated(self: Pin<&mut SpoutDXAdapter>) -> bool;
-        pub fn AdapterIsConnected(self: Pin<&mut SpoutDXAdapter>) -> bool;
-        pub fn AdapterIsFrameNew(self: Pin<&mut SpoutDXAdapter>) -> bool;
-        pub fn AdapterGetSenderWidth(self: Pin<&mut SpoutDXAdapter>) -> u32;
-        pub fn AdapterGetSenderHeight(self: Pin<&mut SpoutDXAdapter>) -> u32;
+impl Default for SpoutSender {
+    fn default() -> Self {
+        Self::new("RustSpoutSender".into())
+    }
+}
 
-        // DirectX functions
+impl SpoutSender {
+    pub fn new(name: &str) -> Self {
+        let spout = ffi::Spout::new().within_box();
 
-        pub fn AdapterOpenDirectX11(self: Pin<&mut SpoutDXAdapter>) -> bool;
-        pub fn AdapterCloseDirectX11(self: Pin<&mut SpoutDXAdapter>);
+        let name = CString::new(name).unwrap();
 
-        // Sender Names
+        let mut me = SpoutSender{
+            spout,
+        };
+        
+        unsafe {
+            me.spout.as_mut().CreateSender(name.as_ptr(), 256.into(), 256.into(), 0.into());
+        }
 
-        pub fn AdapterGetSenderCount(self: Pin<&mut SpoutDXAdapter>) -> i32;
-        pub fn AdapterGetSenderNameByIndex(self: Pin<&mut SpoutDXAdapter>, index: i32) -> String;
+        me
+    }
 
+    pub fn set_name(&mut self, name: &str) {
+        let name = CString::new(name).unwrap();
+        unsafe {
+            self.spout.as_mut().SetSenderName(name.as_ptr());
+        }
+
+    }
+
+    pub fn send_texture(&mut self, target_type: u32, texture_id: u32, width: u32, height: u32) {
+        self.spout.as_mut().SendTexture(texture_id.into(), target_type.into(), width.into(), height.into(), false, 0.into());
+    }
+}
+
+impl Drop for SpoutSender {
+    fn drop(&mut self) {
+        self.spout.as_mut().ReleaseSender();
     }
 }
