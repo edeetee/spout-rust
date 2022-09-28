@@ -25,8 +25,9 @@ fn main() {
 
     let include_path = std::path::PathBuf::from("SpoutGL"); // include path
 
-    let mut b = autocxx_build::Builder::new("src/lib.rs", &[&include_path])
-        .build().unwrap();
+    let path = format!("src/bridge.rs");
+    let mut b = autocxx_build::Builder::new(path, &[&include_path])
+    .build().unwrap();
 
     b.file("SpoutGL/Spout.cpp")
         .file("SpoutGL/SpoutCopy.cpp")
@@ -41,5 +42,5 @@ fn main() {
         .file("SpoutGL/SpoutSharedMemory.cpp")
         .file("SpoutGL/SpoutUtils.cpp");
 
-    b.compile("testing");
+    b.compile("spout");
 }
